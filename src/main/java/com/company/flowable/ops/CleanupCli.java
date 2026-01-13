@@ -26,10 +26,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class CleanupCli {
-    private static final Logger logger = LoggerFactory.getLogger(CleanupCli.class);
+    private static Logger logger;
 
     public static void main(String[] args) throws Exception {
         CleanupConfig config = CleanupConfig.fromArgs(args);
+        if (config.getAuditFile() != null && !config.getAuditFile().isEmpty()) {
+            System.setProperty("ops.cleanup.audit.file", config.getAuditFile());
+        }
+        logger = LoggerFactory.getLogger(CleanupCli.class);
         if (config.getJdbcUrl() == null || config.getJdbcUser() == null || config.getJdbcPass() == null) {
             printUsage();
             return;

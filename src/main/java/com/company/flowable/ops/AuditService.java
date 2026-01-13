@@ -1,13 +1,7 @@
 package com.company.flowable.ops;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.BufferedWriter;
-import java.io.IOException;
 import java.net.InetAddress;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -20,6 +14,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class AuditService {
     private static final Logger logger = LoggerFactory.getLogger(AuditService.class);
+    private static final Logger auditLogger = LoggerFactory.getLogger("com.company.flowable.ops.audit");
 
     private final OpsCleanupProperties props;
     private final ObjectMapper mapper;
@@ -62,21 +57,15 @@ public class AuditService {
         if (error != null) {
             record.put("error", error);
         }
-        writeFile(record);
+        writeAuditLog(record);
         writeDb(record);
     }
 
-    private void writeFile(Map<String, Object> record) {
-        Path path = Path.of(props.getAudit().getFile());
+    private void writeAuditLog(Map<String, Object> record) {
         try {
-            Files.createDirectories(path.getParent());
-            try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
-                writer.write(mapper.writeValueAsString(record));
-                writer.newLine();
-            }
-        } catch (IOException ex) {
-            logger.warn("Failed to write audit file", ex);
+            auditLogger.info(mapper.writeValueAsString(record));
+        } catch (Exception ex) {
+            logger.warn("Failed to write audit log", ex);
         }
     }
 
