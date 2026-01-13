@@ -12,13 +12,39 @@ import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
 import org.flowable.spring.ProcessEngineFactoryBean;
 import org.flowable.spring.SpringProcessEngineConfiguration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
 @Configuration
 public class FlowableEngineConfig {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlowableEngineConfig.class);
+
+    /**
+     * Some environments have Flowable schema properties stamped as 6.7.2.1, but the bundled
+     * libraries only understand 6.7.2. Normalize the values before the engine is built to avoid
+     * "unknown version" startup failures.
+     */
+    @Bean
+    public InitializingBean flowableSchemaVersionNormalizer(JdbcTemplate jdbcTemplate) {
+        return () -> {
+            int updated = jdbcTemplate.update(
+                    "update ACT_GE_PROPERTY set VALUE_ = ? where VALUE_ = ? and NAME_ like ?",
+                    "6.7.2", "6.7.2.1", "%schema.version%");
+            if (updated > 0) {
+                LOGGER.info("Normalized Flowable schema version entries from 6.7.2.1 to 6.7.2 ({} rows)", updated);
+            } else {
+                LOGGER.debug("No Flowable schema version rows required normalization");
+            }
+        };
+    }
 
     @Bean
     public SpringProcessEngineConfiguration processEngineConfiguration(DataSource dataSource,
@@ -35,6 +61,7 @@ public class FlowableEngineConfig {
     }
 
     @Bean
+    @DependsOn("flowableSchemaVersionNormalizer")
     public ProcessEngineFactoryBean processEngineFactoryBean(SpringProcessEngineConfiguration config) {
         ProcessEngineFactoryBean factoryBean = new ProcessEngineFactoryBean();
         factoryBean.setProcessEngineConfiguration(config);
