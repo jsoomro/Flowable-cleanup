@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="_csrf" th:content="${_csrf.token}" />
+  <meta name="_csrf_header" th:content="${_csrf.headerName}" />
+  <title>Process Details</title>
+  <link rel="stylesheet" th:href="@{/css/ops.css}" />
+</head>
+<body>
+  <header>
+    <h1 th:text="'Process ' + ${detail.processInstanceId}">Process</h1>
+    <p th:text="${dryRun} ? 'Dry-run enabled' : 'Deletion enabled'">Dry-run enabled</p>
+  </header>
+  <div class="container">
+    <div class="card">
+      <h3>Summary</h3>
+      <p><strong>Process Key:</strong> <span th:text="${detail.processDefinitionKey}">key</span></p>
+      <p><strong>Started:</strong> <span th:text="${detail.startTime}">start</span></p>
+      <p><strong>Hours Running:</strong> <span th:text="${detail.hoursRunning}">0</span></p>
+      <p><strong>Starter:</strong> <span th:text="${detail.starterUserId}">user</span></p>
+      <p><strong>Action:</strong> <span th:text="${detail.recommendedAction}">TERMINATE</span></p>
+      <button class="danger" onclick="terminateSingle()">Terminate This Instance</button>
+    </div>
+
+    <div class="card">
+      <h3>Tasks</h3>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th><th>Name</th><th>Assignee</th><th>Age Hours</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="task : ${detail.tasks}">
+            <td th:text="${task.taskId}">id</td>
+            <td th:text="${task.name}">name</td>
+            <td th:text="${task.assignee}">assignee</td>
+            <td th:text="${task.ageHours}">0</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Activities</h3>
+      <ul>
+        <li th:each="entry : ${detail.activeActivityNames}">
+          <span th:text="${entry.key}">id</span> - <span th:text="${entry.value}">name</span>
+        </li>
+        <li th:if="${#lists.isEmpty(detail.activeActivityNames)}">No active activities</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>Jobs & Timers</h3>
+      <p><strong>Jobs:</strong> <span th:text="${detail.jobCount}">0</span> (Overdue: <span th:text="${detail.overdueJobCount}">0</span>)</p>
+      <p><strong>Timers:</strong> <span th:text="${detail.timerCount}">0</span> (Overdue: <span th:text="${detail.overdueTimerCount}">0</span>)</p>
+    </div>
+  </div>
+
+<script>
+function getCsrf() {
+  const token = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+  const header = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+  return { token, header };
+}
+
+async function terminateSingle() {
+  const reason = prompt('Reason for termination?');
+  if (!reason) return;
+  const token = prompt('Type DELETE_TERMINATE to confirm');
+  const csrf = getCsrf();
+  const pid = "[[${detail.processInstanceId}]]";
+
+  await fetch('/api/ops/processes/terminate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      [csrf.header]: csrf.token
+    },
+    body: JSON.stringify({ pids: [pid], reason, token, verify: true })
+  });
+  window.location = '/ops';
+}
+</script>
+</body>
+</html>

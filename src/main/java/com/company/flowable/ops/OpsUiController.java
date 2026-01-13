@@ -1,0 +1,32 @@
+package com.company.flowable.ops;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+@Controller
+public class OpsUiController {
+    private final OpsCleanupService cleanupService;
+    private final OpsCleanupProperties props;
+
+    public OpsUiController(OpsCleanupService cleanupService, OpsCleanupProperties props) {
+        this.cleanupService = cleanupService;
+        this.props = props;
+    }
+
+    @GetMapping("/ops")
+    public String dashboard(Model model) {
+        model.addAttribute("defaultHours", props.getDefaultHours());
+        model.addAttribute("dryRun", props.isDryRun());
+        return "ops-dashboard";
+    }
+
+    @GetMapping("/ops/{pid}")
+    public String details(@PathVariable("pid") String pid, Model model) {
+        ProcessDetailDto detail = cleanupService.getDetails(pid, props.getDefaultHours());
+        model.addAttribute("detail", detail);
+        model.addAttribute("dryRun", props.isDryRun());
+        return "ops-details";
+    }
+}

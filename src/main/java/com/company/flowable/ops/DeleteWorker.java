@@ -1,0 +1,87 @@
+package com.company.flowable.ops;
+
+import java.util.concurrent.TimeUnit;
+
+import org.flowable.common.engine.api.FlowableObjectNotFoundException;
+import org.flowable.common.engine.api.FlowableOptimisticLockingException;
+import org.flowable.engine.RuntimeService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class DeleteWorker {
+    private static final Logger logger = LoggerFactory.getLogger(DeleteWorker.class);
+
+    private final RuntimeService runtimeService;
+    private final VerificationService verificationService;
+    private final OpsCleanupProperties props;
+
+    public DeleteWorker(RuntimeService runtimeService, VerificationService verificationService, OpsCleanupProperties props) {
+        this.runtimeService = runtimeService;
+        this.verificationService = verificationService;
+        this.props = props;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public DeleteOutcome deleteProcess(String pid, String reason, boolean verify) {
+        boolean active = runtimeService.createProcessInstanceQuery().processInstanceId(pid).active().count() > 0;
+        if (!active) {
+            return DeleteOutcome.skipped("Process instance not active");
+        }
+
+        int maxAttempts = Math.max(0, props.getRetryCount());
+        for (int attempt = 0; attempt <= maxAttempts; attempt++) {
+            try {
+                runtimeService.deleteProcessInstance(pid, reason);
+                if (verify) {
+                    VerificationSnapshot snapshot = verificationService.verify(pid);
+                    if (snapshot.isDeleted()) {
+                        return DeleteOutcome.ok();
+                    }
+                    if (attempt < maxAttempts) {
+                        backoff(attempt);
+                        continue;
+                    }
+                    return DeleteOutcome.fail("Verification failed");
+                }
+                return DeleteOutcome.ok();
+            } catch (Exception ex) {
+                if (isRetryable(ex) && attempt < maxAttempts) {
+                    backoff(attempt);
+                    continue;
+                }
+                logger.warn("Delete failed for {}", pid, ex);
+                return DeleteOutcome.fail(ex.getMessage());
+            }
+        }
+        return DeleteOutcome.fail("Delete attempts exhausted");
+    }
+
+    private void backoff(int attempt) {
+        long delay = props.getRetryBackoffMillis() * (attempt + 1);
+        try {
+            TimeUnit.MILLISECONDS.sleep(delay);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private boolean isRetryable(Throwable ex) {
+        Throwable current = ex;
+        while (current != null) {
+            if (current instanceof FlowableOptimisticLockingException || current instanceof OptimisticLockingFailureException) {
+                return true;
+            }
+            if (current instanceof FlowableObjectNotFoundException) {
+                return false;
+            }
+            current = current.getCause();
+        }
+        String msg = ex.getMessage() == null ? "" : ex.getMessage().toLowerCase();
+        return msg.contains("optimistic") || msg.contains("concurrent");
+    }
+}

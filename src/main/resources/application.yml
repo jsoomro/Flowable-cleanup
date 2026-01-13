@@ -1,0 +1,37 @@
+spring:
+  datasource:
+    url: jdbc:oracle:thin:@//dbhost:1521/service
+    username: FLOWABLE
+    password: secret
+    driver-class-name: oracle.jdbc.OracleDriver
+
+ops:
+  cleanup:
+    enabled: true
+    dryRun: true
+    defaultHours: 6
+    taskEscalationHours: 6
+    maxPageSize: 200
+    maxBulkDelete: 200
+    retryCount: 2
+    retryBackoffMillis: 500
+    delayBetweenDeletesMillis: 50
+    queryStrategy: API_ONLY
+    nativeSql:
+      tablePrefix: ACT_
+      inClauseLimit: 1000
+    audit:
+      file: logs/ops-cleanup-audit.jsonl
+      dbEnabled: false
+    allowProcDefKeys: []
+    denyProcDefKeys: []
+  security:
+    adminUsername: opsadmin
+    adminPassword: "{bcrypt}$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5o2m9c6gB9G1d/WQ5P6r6V5pY2"
+    viewerUsername: opsviewer
+    viewerPassword: "{bcrypt}$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5o2m9c6gB9G1d/WQ5P6r6V5pY2"
+
+logging:
+  level:
+    root: INFO
+    com.company.flowable.ops: INFO
