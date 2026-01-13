@@ -16,6 +16,7 @@
       </Policies>
       <DefaultRolloverStrategy max="14"/>
     </RollingFile>
+    
 
     <RollingFile name="AuditFile" fileName="${AUDIT_LOG_FILE}"
                  filePattern="logs/ops-cleanup-audit-%d{yyyy-MM-dd}-%i.log.gz">

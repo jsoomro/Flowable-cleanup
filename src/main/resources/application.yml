@@ -21,7 +21,7 @@ ops:
       tablePrefix: ACT_
       inClauseLimit: 1000
     audit:
-      file: logs/ops-cleanup-audit.jsonl
+      file: logs/ops-cleanup-audit.log
       dbEnabled: false
     allowProcDefKeys: []
     denyProcDefKeys: []
