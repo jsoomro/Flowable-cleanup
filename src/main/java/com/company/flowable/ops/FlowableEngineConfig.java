@@ -12,6 +12,7 @@ import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
 import org.flowable.spring.ProcessEngineFactoryBean;
 import org.flowable.spring.SpringProcessEngineConfiguration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -21,11 +22,12 @@ public class FlowableEngineConfig {
 
     @Bean
     public SpringProcessEngineConfiguration processEngineConfiguration(DataSource dataSource,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager,
+            @Value("${flowable.database-schema-update:false}") String databaseSchemaUpdate) {
         SpringProcessEngineConfiguration config = new SpringProcessEngineConfiguration();
         config.setDataSource(dataSource);
         config.setTransactionManager(transactionManager);
-        config.setDatabaseSchemaUpdate(ProcessEngineConfiguration.DB_SCHEMA_UPDATE_FALSE);
+        config.setDatabaseSchemaUpdate(databaseSchemaUpdate);
         // Flowable 6.7.2 SpringProcessEngineConfiguration doesn't expose setJobExecutorActivate.
         config.setAsyncExecutorActivate(false);
         config.setAsyncHistoryExecutorActivate(false);

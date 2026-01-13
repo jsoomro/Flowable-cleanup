@@ -5,6 +5,9 @@ spring:
     password: secret
     driver-class-name: oracle.jdbc.OracleDriver
 
+flowable:
+  database-schema-update: true
+
 ops:
   cleanup:
     enabled: true
