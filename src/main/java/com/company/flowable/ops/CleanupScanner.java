@@ -237,29 +237,17 @@ public class CleanupScanner {
             candidate.getTasks().add(new TaskSummary(task.getId(), task.getName(), task.getAssignee(), createTime, ageHours));
         }
 
-        try {
-            candidate.setActiveActivityIds(runtimeService.getActiveActivityIds(historic.getId()));
-        } catch (Exception ex) {
-            candidate.setActiveActivityIds(Collections.emptyList());
-        }
+        candidate.setActiveActivityIds(prefetch.activeActivityIdsByProcessId.getOrDefault(historic.getId(), Collections.emptyList()));
 
         candidate.setJobCount(prefetch.jobCountByProcessId.getOrDefault(historic.getId(), 0));
         candidate.setOverdueJobCount(prefetch.overdueJobCountByProcessId.getOrDefault(historic.getId(), 0));
         candidate.setTimerCount(prefetch.timerCountByProcessId.getOrDefault(historic.getId(), 0));
         candidate.setOverdueTimerCount(prefetch.overdueTimerCountByProcessId.getOrDefault(historic.getId(), 0));
 
-        Execution execution = runtimeService.createExecutionQuery()
-            .processInstanceId(historic.getId())
-            .onlyProcessInstanceExecutions()
-            .singleResult();
-        if (execution != null && execution.getSuperExecutionId() != null) {
+        String parentPid = prefetch.parentPidByProcessId.get(historic.getId());
+        if (parentPid != null) {
             candidate.setSubprocess(true);
-            Execution parent = runtimeService.createExecutionQuery()
-                .executionId(execution.getSuperExecutionId())
-                .singleResult();
-            if (parent != null) {
-                candidate.setParentPid(parent.getProcessInstanceId());
-            }
+            candidate.setParentPid(parentPid);
         }
 
         if (!config.isIncludeSubprocesses() && candidate.isSubprocess()) {
@@ -309,6 +297,42 @@ public class CleanupScanner {
             .list();
         for (ProcessInstance pi : runtimeInstances) {
             data.runtimeByProcessId.put(pi.getId(), pi);
+        }
+
+        // Prefetch active activity IDs
+        List<Execution> activityExecutions = runtimeService.createExecutionQuery()
+                .processInstanceIds(new java.util.HashSet<>(ids))
+                .onlyChildExecutions()
+                .list();
+        for (Execution execution : activityExecutions) {
+            if (execution.getActivityId() != null) {
+                data.activeActivityIdsByProcessId
+                    .computeIfAbsent(execution.getProcessInstanceId(), k -> new ArrayList<>())
+                    .add(execution.getActivityId());
+            }
+        }
+
+        // Prefetch parent process relationships for sub-processes
+        List<Execution> processExecutions = runtimeService.createExecutionQuery()
+            .processInstanceIds(new java.util.HashSet<>(ids))
+            .onlyProcessInstanceExecutions()
+            .list();
+        java.util.Map<String, String> subProcessExecutionIds = new java.util.HashMap<>();
+        for (Execution execution : processExecutions) {
+            if (execution.getSuperExecutionId() != null) {
+                subProcessExecutionIds.put(execution.getSuperExecutionId(), execution.getProcessInstanceId());
+            }
+        }
+        if (!subProcessExecutionIds.isEmpty()) {
+            List<Execution> parentExecutions = runtimeService.createExecutionQuery()
+                .executionIds(subProcessExecutionIds.keySet())
+                .list();
+            for (Execution parent : parentExecutions) {
+                String subProcessId = subProcessExecutionIds.get(parent.getId());
+                if (subProcessId != null) {
+                    data.parentPidByProcessId.put(subProcessId, parent.getProcessInstanceId());
+                }
+            }
         }
 
         List<Task> tasks = taskService.createTaskQuery().processInstanceIdIn(ids).active().list();
@@ -365,5 +389,7 @@ public class CleanupScanner {
         final java.util.Map<String, Integer> timerCountByProcessId = new java.util.HashMap<>();
         final java.util.Map<String, Integer> overdueTimerCountByProcessId = new java.util.HashMap<>();
         final java.util.Map<String, User> usersById = new java.util.HashMap<>();
+        final java.util.Map<String, List<String>> activeActivityIdsByProcessId = new java.util.HashMap<>();
+        final java.util.Map<String, String> parentPidByProcessId = new java.util.HashMap<>();
     }
 }
