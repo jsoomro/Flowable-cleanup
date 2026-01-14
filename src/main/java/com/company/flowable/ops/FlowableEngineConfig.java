@@ -28,22 +28,53 @@ public class FlowableEngineConfig {
     private static final Logger LOGGER = LoggerFactory.getLogger(FlowableEngineConfig.class);
 
     /**
-     * Some environments have Flowable schema properties stamped as 6.7.2.1, but the bundled
-     * libraries only understand 6.7.2. Normalize the values before the engine is built to avoid
-     * "unknown version" startup failures.
+     * Some environments have Flowable schema properties stamped as 6.7.2 or 6.7.2.1, but the
+     * community artifacts expect the four-part version 6.7.2.0. Normalize before engine creation to
+     * avoid "unknown version" startup failures.
      */
     @Bean
     public InitializingBean flowableSchemaVersionNormalizer(JdbcTemplate jdbcTemplate) {
         return () -> {
-            int updated = jdbcTemplate.update(
-                    "update ACT_GE_PROPERTY set VALUE_ = ? where VALUE_ = ? and NAME_ like ?",
-                    "6.7.2", "6.7.2.1", "%schema.version%");
-            if (updated > 0) {
-                LOGGER.info("Normalized Flowable schema version entries from 6.7.2.1 to 6.7.2 ({} rows)", updated);
+            int geRows = normalizeSchemaVersion(jdbcTemplate, "ACT_GE_PROPERTY");
+            int idRows = normalizeSchemaVersion(jdbcTemplate, "ACT_ID_PROPERTY");
+            int geHistoryRows = normalizeSchemaHistory(jdbcTemplate, "ACT_GE_PROPERTY");
+            int idHistoryRows = normalizeSchemaHistory(jdbcTemplate, "ACT_ID_PROPERTY");
+            int totalHistory = geHistoryRows + idHistoryRows;
+            int total = geRows + idRows;
+            if (total > 0 || totalHistory > 0) {
+                LOGGER.info("Normalized Flowable schema version entries to 6.7.2.0 ({} rows) and schema history entries ({} rows)",
+                        total, totalHistory);
             } else {
                 LOGGER.debug("No Flowable schema version rows required normalization");
             }
         };
+    }
+
+    private int normalizeSchemaVersion(JdbcTemplate jdbcTemplate, String tableName) {
+        try {
+            int patchedFromPatchLevel = jdbcTemplate.update(
+                    "update " + tableName + " set VALUE_ = ? where VALUE_ = ? and NAME_ like ?",
+                    "6.7.2.0", "6.7.2.1", "%schema.version%");
+            int patchedFromShort = jdbcTemplate.update(
+                    "update " + tableName + " set VALUE_ = ? where VALUE_ = ? and NAME_ like ?",
+                    "6.7.2.0", "6.7.2", "%schema.version%");
+            return patchedFromPatchLevel + patchedFromShort;
+        } catch (Exception ex) {
+            LOGGER.debug("Skipping schema normalization for {} (likely table absent): {}", tableName, ex.getMessage());
+            return 0;
+        }
+    }
+
+    private int normalizeSchemaHistory(JdbcTemplate jdbcTemplate, String tableName) {
+        try {
+            // Normalize history upgrade marker to the version understood by the engine.
+            return jdbcTemplate.update(
+                    "update " + tableName + " set VALUE_ = ? where NAME_ = 'schema.history' and VALUE_ like ?",
+                    "upgrade(6.4.1.3->6.7.2.0)", "upgrade(6.4.1.3->6.7.2.1)%");
+        } catch (Exception ex) {
+            LOGGER.debug("Skipping schema history normalization for {} (likely table absent): {}", tableName, ex.getMessage());
+            return 0;
+        }
     }
 
     @Bean
