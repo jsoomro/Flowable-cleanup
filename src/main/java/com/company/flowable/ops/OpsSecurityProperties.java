@@ -1,9 +1,7 @@
 package com.company.flowable.ops;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Configuration;
 
-@Configuration
 @ConfigurationProperties(prefix = "ops.security")
 public class OpsSecurityProperties {
     private String adminUsername = "opsadmin";
