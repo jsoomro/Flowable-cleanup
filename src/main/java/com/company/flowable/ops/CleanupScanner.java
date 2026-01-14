@@ -198,10 +198,7 @@ public class CleanupScanner {
             return null;
         }
 
-        ProcessInstance runtime = runtimeService.createProcessInstanceQuery()
-            .processInstanceId(historic.getId())
-            .active()
-            .singleResult();
+        ProcessInstance runtime = prefetch.runtimeByProcessId.get(historic.getId());
         if (runtime == null) {
             return null;
         }
@@ -291,14 +288,27 @@ public class CleanupScanner {
 
     private PrefetchData prefetchData(List<HistoricProcessInstance> page, Instant now) {
         List<String> ids = new ArrayList<>();
+        java.util.Set<String> starterUserIds = new java.util.HashSet<>();
         for (HistoricProcessInstance historic : page) {
             if (historic != null) {
                 ids.add(historic.getId());
+                if (historic.getStartUserId() != null && !historic.getStartUserId().trim().isEmpty()) {
+                    starterUserIds.add(historic.getStartUserId().trim());
+                }
             }
         }
         PrefetchData data = new PrefetchData();
         if (ids.isEmpty()) {
             return data;
+        }
+
+        // Prefetch active runtime instances to avoid per-candidate lookups.
+        List<ProcessInstance> runtimeInstances = runtimeService.createProcessInstanceQuery()
+            .processInstanceIds(new java.util.HashSet<>(ids))
+            .active()
+            .list();
+        for (ProcessInstance pi : runtimeInstances) {
+            data.runtimeByProcessId.put(pi.getId(), pi);
         }
 
         List<Task> tasks = taskService.createTaskQuery().processInstanceIdIn(ids).active().list();
@@ -308,13 +318,12 @@ public class CleanupScanner {
 
         jobCountStrategy.countJobsAndTimers(ids, now, data);
 
-        for (HistoricProcessInstance historic : page) {
-            String userId = historic == null ? null : historic.getStartUserId();
-            if (userId != null && !userId.trim().isEmpty() && !data.usersById.containsKey(userId)) {
-                User user = identityService.createUserQuery().userId(userId).singleResult();
-                if (user != null) {
-                    data.usersById.put(user.getId(), user);
-                }
+        if (!starterUserIds.isEmpty()) {
+            List<User> users = identityService.createUserQuery()
+                .userIds(new ArrayList<>(starterUserIds))
+                .list();
+            for (User user : users) {
+                data.usersById.put(user.getId(), user);
             }
         }
         return data;
@@ -349,6 +358,7 @@ public class CleanupScanner {
     }
 
     static class PrefetchData {
+        final java.util.Map<String, ProcessInstance> runtimeByProcessId = new java.util.HashMap<>();
         final java.util.Map<String, List<Task>> tasksByProcessId = new java.util.HashMap<>();
         final java.util.Map<String, Integer> jobCountByProcessId = new java.util.HashMap<>();
         final java.util.Map<String, Integer> overdueJobCountByProcessId = new java.util.HashMap<>();
