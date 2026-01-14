@@ -112,7 +112,7 @@ CREATE TABLE OPS_CLEANUP_AUDIT (
 - Some environments hide `ACT_RU_PROCINST`; the app uses Flowable APIs and does not rely on direct SQL.
 
 ## Schema Selection
-Switching between CIMFLOW and SMARTCIMPD schemas is done via DB credentials in `spring.datasource.*`. The application uses Flowable APIs so schema visibility is determined by the DB user.
+Switching between Flow and SmartFlow schemas is done via DB credentials in `spring.datasource.*`. The application uses Flowable APIs so schema visibility is determined by the DB user.
 
 ## REST API
 - `GET /api/ops/processes`
