@@ -19,13 +19,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeRequests()
-            .antMatchers("/css/**", "/js/**").permitAll()
-            .antMatchers("/ops/**", "/api/ops/**").authenticated()
-            .anyRequest().authenticated()
+            .anyRequest().permitAll()
             .and()
-            .httpBasic()
-            .and()
-            .formLogin();
+            .csrf().disable();
         return http.build();
     }
 
