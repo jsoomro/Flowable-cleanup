@@ -34,6 +34,12 @@
   </Appenders>
 
   <Loggers>
+    <!-- Silence Flowable DI warnings that spam logs when BPMN diagram references are missing -->
+    <Logger name="org.flowable.engine.impl.bpmn.parser.BpmnParse" level="error" additivity="false">
+      <AppenderRef ref="AppFile"/>
+      <AppenderRef ref="Console"/>
+    </Logger>
+
     <Logger name="com.company.flowable.ops.audit" level="info" additivity="false">
       <AppenderRef ref="AuditFile"/>
     </Logger>
