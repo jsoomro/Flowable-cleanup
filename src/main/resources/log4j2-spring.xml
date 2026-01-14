@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" monitorInterval="30">
+  <Properties>
+    <Property name="APP_LOG_FILE">${sys:ops.cleanup.app.file:-logs/ops-cleanup-app.log}</Property>
+    <Property name="AUDIT_LOG_FILE">${spring:ops.cleanup.audit.file:-${sys:ops.cleanup.audit.file:-logs/ops-cleanup-audit.jsonl}}</Property>
+    <Property name="APP_LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%t] %c - %m%n</Property>
+  </Properties>
+
+  <Appenders>
+    <RollingFile name="AppFile" fileName="${APP_LOG_FILE}"
+                 filePattern="logs/ops-cleanup-app-%d{yyyy-MM-dd}-%i.log.gz">
+      <PatternLayout pattern="${APP_LOG_PATTERN}"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+        <SizeBasedTriggeringPolicy size="10 MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="14"/>
+    </RollingFile>
+    
+
+    <RollingFile name="AuditFile" fileName="${AUDIT_LOG_FILE}"
+                 filePattern="logs/ops-cleanup-audit-%d{yyyy-MM-dd}-%i.log.gz">
+      <PatternLayout pattern="%m%n"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+        <SizeBasedTriggeringPolicy size="10 MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="14"/>
+    </RollingFile>
+
+    <Console name="Console" target="SYSTEM_OUT">
+      <PatternLayout pattern="${APP_LOG_PATTERN}"/>
+    </Console>
+  </Appenders>
+
+  <Loggers>
+    <!-- Silence Flowable DI warnings that spam logs when BPMN diagram references are missing -->
+    <Logger name="org.flowable.engine.impl.bpmn.parser.BpmnParse" level="error" additivity="false">
+      <AppenderRef ref="AppFile"/>
+      <AppenderRef ref="Console"/>
+    </Logger>
+
+    <Logger name="com.company.flowable.ops.audit" level="info" additivity="false">
+      <AppenderRef ref="AuditFile"/>
+    </Logger>
+
+    <Root level="info">
+      <AppenderRef ref="AppFile"/>
+      <AppenderRef ref="Console"/>
+    </Root>
+  </Loggers>
+</Configuration>

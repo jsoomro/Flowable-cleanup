@@ -1,31 +1,28 @@
 package com.company.flowable.ops;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
 import java.net.InetAddress;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class AuditLogger implements AutoCloseable {
-    private final BufferedWriter writer;
+    private static final Logger auditLogger = LoggerFactory.getLogger("com.company.flowable.ops.audit");
     private final String runId;
     private final String host;
     private final String user;
 
-    public AuditLogger(String filePath, String runId) throws IOException {
+    public AuditLogger(String filePath, String runId) {
         this.runId = runId;
         this.host = resolveHost();
         this.user = System.getProperty("user.name");
-        Path path = Path.of(filePath);
-        writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8,
-            StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        if (filePath != null && !filePath.isEmpty()) {
+            System.setProperty("ops.cleanup.audit.file", filePath);
+        }
     }
 
     public synchronized void logEvaluation(Candidate candidate, ClassificationResult classification) {
@@ -116,10 +113,8 @@ public class AuditLogger implements AutoCloseable {
 
     private void writeRecord(Map<String, Object> record) {
         try {
-            writer.write(JsonUtil.toJson(record));
-            writer.newLine();
-            writer.flush();
-        } catch (IOException ex) {
+            auditLogger.info(JsonUtil.toJson(record));
+        } catch (Exception ex) {
             throw new RuntimeException("Failed to write audit record", ex);
         }
     }
@@ -133,7 +128,6 @@ public class AuditLogger implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
-        writer.close();
+    public void close() {
     }
 }
