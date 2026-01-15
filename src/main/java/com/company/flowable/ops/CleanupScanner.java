@@ -300,10 +300,15 @@ public class CleanupScanner {
         }
 
         // Prefetch active activity IDs
-        List<Execution> activityExecutions = runtimeService.createExecutionQuery()
-                .processInstanceIds(new java.util.HashSet<>(ids))
-                .onlyChildExecutions()
-                .list();
+        List<Execution> activityExecutions = new ArrayList<>();
+        if (!ids.isEmpty()) {
+            for (String id : ids) {
+                activityExecutions.addAll(runtimeService.createExecutionQuery()
+                    .processInstanceId(id)
+                    .onlyChildExecutions()
+                    .list());
+            }
+        }
         for (Execution execution : activityExecutions) {
             if (execution.getActivityId() != null) {
                 data.activeActivityIdsByProcessId
@@ -313,10 +318,15 @@ public class CleanupScanner {
         }
 
         // Prefetch parent process relationships for sub-processes
-        List<Execution> processExecutions = runtimeService.createExecutionQuery()
-            .processInstanceIds(new java.util.HashSet<>(ids))
-            .onlyProcessInstanceExecutions()
-            .list();
+        List<Execution> processExecutions = new ArrayList<>();
+        if (!ids.isEmpty()) {
+            for (String id : ids) {
+                processExecutions.addAll(runtimeService.createExecutionQuery()
+                    .processInstanceId(id)
+                    .onlyProcessInstanceExecutions()
+                    .list());
+            }
+        }
         java.util.Map<String, String> subProcessExecutionIds = new java.util.HashMap<>();
         for (Execution execution : processExecutions) {
             if (execution.getSuperExecutionId() != null) {
@@ -324,9 +334,15 @@ public class CleanupScanner {
             }
         }
         if (!subProcessExecutionIds.isEmpty()) {
-            List<Execution> parentExecutions = runtimeService.createExecutionQuery()
-                .executionIds(subProcessExecutionIds.keySet())
-                .list();
+            List<Execution> parentExecutions = new ArrayList<>();
+            for (String executionId : subProcessExecutionIds.keySet()) {
+                Execution parent = runtimeService.createExecutionQuery()
+                    .executionId(executionId)
+                    .singleResult();
+                if (parent != null) {
+                    parentExecutions.add(parent);
+                }
+            }
             for (Execution parent : parentExecutions) {
                 String subProcessId = subProcessExecutionIds.get(parent.getId());
                 if (subProcessId != null) {
@@ -335,7 +351,7 @@ public class CleanupScanner {
             }
         }
 
-        List<Task> tasks = taskService.createTaskQuery().processInstanceIdIn(ids).active().list();
+        List<Task> tasks = taskService.createTaskQuery().processInstanceIdIn(new java.util.HashSet<>(ids)).active().list();
         for (Task task : tasks) {
             data.tasksByProcessId.computeIfAbsent(task.getProcessInstanceId(), k -> new ArrayList<>()).add(task);
         }
