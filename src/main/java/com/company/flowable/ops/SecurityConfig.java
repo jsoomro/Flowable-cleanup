@@ -2,6 +2,7 @@ package com.company.flowable.ops;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.User;
@@ -9,6 +10,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -18,11 +20,18 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .authorizeRequests()
-            .anyRequest().permitAll()
+            .csrf()
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
             .and()
-            .csrf().disable()
-            .httpBasic().disable()
+            .authorizeRequests()
+                .antMatchers("/css/**", "/js/**", "/images/**", "/webjars/**").permitAll()
+                .antMatchers(HttpMethod.GET, "/ops/**").hasAnyRole("FLOWABLE_OPS_VIEWER", "FLOWABLE_OPS_ADMIN")
+                .antMatchers(HttpMethod.GET, "/api/ops/**").hasAnyRole("FLOWABLE_OPS_VIEWER", "FLOWABLE_OPS_ADMIN")
+                .antMatchers("/api/ops/**").hasRole("FLOWABLE_OPS_ADMIN")
+                .anyRequest().authenticated()
+            .and()
+            .httpBasic()
+            .and()
             .formLogin().disable();
         return http.build();
     }
