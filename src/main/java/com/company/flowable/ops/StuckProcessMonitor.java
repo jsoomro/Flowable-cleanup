@@ -31,7 +31,7 @@ public class StuckProcessMonitor {
         this.alertsProperties = alertsProperties;
     }
 
-    @Scheduled(fixedDelayString = "#{@opsAlertsProperties.intervalMillis}")
+    @Scheduled(fixedDelayString = "#{${ops.alerts.interval-seconds:300} * 1000}")
     public void poll() {
         if (!alertsProperties.isEnabled()) {
             return;
