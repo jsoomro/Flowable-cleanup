@@ -50,9 +50,9 @@ ops:
     denyProcDefKeys: []
   security:
     adminUsername: opsadmin
-    adminPassword: "{bcrypt}$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5o2m9c6gB9G1d/WQ5P6r6V5pY2"
+    adminPassword: "{bcrypt}$2a$10$1XsID.YKsvVEODx4R9Eepe/tG0VwFa/nzUrwiV4cOK5DCY/6DHUOS"
     viewerUsername: opsviewer
-    viewerPassword: "{bcrypt}$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5o2m9c6gB9G1d/WQ5P6r6V5pY2"
+    viewerPassword: "{bcrypt}$2a$10$YXBuPMqLNd35I4F/1B4br.fV71EA97X2ekOGAAablKtjN6kaf0nRu"
 ```
 
 Query strategy guidance:
@@ -65,7 +65,9 @@ Query strategy guidance:
 - `FLOWABLE_OPS_VIEWER` can view only.
 - CSRF protection enabled for UI and API.
 - Passwords must be stored as bcrypt hashes; `{noop}` (plain text) is rejected at startup.
-- The sample bcrypt hashes map to a known default; replace them before production.
+- Default credentials (replace for production):
+  - Admin: `opsadmin` / `opsadmin#S7qk3`
+  - Viewer: `opsviewer` / `opsviewer#F9zLd`
 
 ## Classification Rules
 - **WAIT**: timers exist but not overdue OR tasks exist and oldest task age < escalation threshold.
