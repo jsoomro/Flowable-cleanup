@@ -157,9 +157,11 @@ public class OpsCleanupProperties {
         }
     }
 
-    public static class NativeSql {
+        public class NativeSql {
         private String tablePrefix = "ACT_";
         private int inClauseLimit = 1000;
+        private String processInstanceIdColumn = "PROCESS_INSTANCE_ID_"; // Defaulting to the corrected name
+        private String dueDateColumn = "DUEDATE_"; // Defaulting to the existing name
 
         public String getTablePrefix() {
             return tablePrefix;
@@ -175,6 +177,22 @@ public class OpsCleanupProperties {
 
         public void setInClauseLimit(int inClauseLimit) {
             this.inClauseLimit = inClauseLimit;
+        }
+
+        public String getProcessInstanceIdColumn() {
+            return processInstanceIdColumn;
+        }
+
+        public void setProcessInstanceIdColumn(String processInstanceIdColumn) {
+            this.processInstanceIdColumn = processInstanceIdColumn;
+        }
+
+        public String getDueDateColumn() {
+            return dueDateColumn;
+        }
+
+        public void setDueDateColumn(String dueDateColumn) {
+            this.dueDateColumn = dueDateColumn;
         }
     }
 

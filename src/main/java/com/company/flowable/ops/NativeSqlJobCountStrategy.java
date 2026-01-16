@@ -31,7 +31,7 @@ public class NativeSqlJobCountStrategy implements JobCountStrategy {
     private void countJobs(List<String> ids, Instant now, CleanupScanner.PrefetchData data) {
         String table = nativeSql.getTablePrefix() + "RU_JOB";
         String inClause = buildInClause(ids.size());
-        String sql = "SELECT PROC_INST_ID_, DUEDATE_ FROM " + table + " WHERE PROC_INST_ID_ IN " + inClause;
+        String sql = "SELECT " + nativeSql.getProcessInstanceIdColumn() + ", " + nativeSql.getDueDateColumn() + " FROM " + table + " WHERE " + nativeSql.getProcessInstanceIdColumn() + " IN " + inClause;
         Timestamp nowTs = Timestamp.from(now);
         jdbcTemplate.query(sql, new PreparedStatementSetter() {
             @Override
@@ -42,9 +42,9 @@ public class NativeSqlJobCountStrategy implements JobCountStrategy {
                 }
             }
         }, rs -> {
-            String pid = rs.getString("PROC_INST_ID_");
+            String pid = rs.getString(nativeSql.getProcessInstanceIdColumn());
             data.jobCountByProcessId.put(pid, data.jobCountByProcessId.getOrDefault(pid, 0) + 1);
-            Timestamp due = rs.getTimestamp("DUEDATE_");
+            Timestamp due = rs.getTimestamp(nativeSql.getDueDateColumn());
             if (due != null && due.before(nowTs)) {
                 data.overdueJobCountByProcessId.put(pid, data.overdueJobCountByProcessId.getOrDefault(pid, 0) + 1);
             }
@@ -54,7 +54,7 @@ public class NativeSqlJobCountStrategy implements JobCountStrategy {
     private void countTimers(List<String> ids, Instant now, CleanupScanner.PrefetchData data) {
         String table = nativeSql.getTablePrefix() + "RU_TIMER_JOB";
         String inClause = buildInClause(ids.size());
-        String sql = "SELECT PROC_INST_ID_, DUEDATE_ FROM " + table + " WHERE PROC_INST_ID_ IN " + inClause;
+        String sql = "SELECT " + nativeSql.getProcessInstanceIdColumn() + ", " + nativeSql.getDueDateColumn() + " FROM " + table + " WHERE " + nativeSql.getProcessInstanceIdColumn() + " IN " + inClause;
         Timestamp nowTs = Timestamp.from(now);
         jdbcTemplate.query(sql, new PreparedStatementSetter() {
             @Override
@@ -65,9 +65,9 @@ public class NativeSqlJobCountStrategy implements JobCountStrategy {
                 }
             }
         }, rs -> {
-            String pid = rs.getString("PROC_INST_ID_");
+            String pid = rs.getString(nativeSql.getProcessInstanceIdColumn());
             data.timerCountByProcessId.put(pid, data.timerCountByProcessId.getOrDefault(pid, 0) + 1);
-            Timestamp due = rs.getTimestamp("DUEDATE_");
+            Timestamp due = rs.getTimestamp(nativeSql.getDueDateColumn());
             if (due != null && due.before(nowTs)) {
                 data.overdueTimerCountByProcessId.put(pid, data.overdueTimerCountByProcessId.getOrDefault(pid, 0) + 1);
             }
