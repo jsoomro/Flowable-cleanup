@@ -1,5 +1,6 @@
 package com.company.flowable.ops;
 
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,17 +17,19 @@ public class OpsUiController {
     }
 
     @GetMapping("/ops")
-    public String dashboard(Model model) {
+    public String dashboard(Model model, CsrfToken csrfToken) {
         model.addAttribute("defaultHours", props.getDefaultHours());
         model.addAttribute("dryRun", props.isDryRun());
+        model.addAttribute("_csrf", csrfToken);
         return "ops-dashboard";
     }
 
     @GetMapping("/ops/{pid}")
-    public String details(@PathVariable("pid") String pid, Model model) {
+    public String details(@PathVariable("pid") String pid, Model model, CsrfToken csrfToken) {
         ProcessDetailDto detail = cleanupService.getDetails(pid, props.getDefaultHours());
         model.addAttribute("detail", detail);
         model.addAttribute("dryRun", props.isDryRun());
+        model.addAttribute("_csrf", csrfToken);
         return "ops-details";
     }
 }
