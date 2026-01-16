@@ -16,6 +16,7 @@ import org.flowable.engine.history.HistoricProcessInstance;
 import org.flowable.idm.api.User;
 import org.flowable.identitylink.api.IdentityLink;
 import org.flowable.engine.runtime.Execution;
+import org.flowable.engine.runtime.NativeExecutionQuery;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.task.api.Task;
 import org.slf4j.Logger;
@@ -299,15 +300,11 @@ public class CleanupScanner {
             data.runtimeByProcessId.put(pi.getId(), pi);
         }
 
-        // Prefetch executions per process instance (Flowable 6.7 lacks processInstanceIdIn on ExecutionQuery)
+        // Prefetch executions in batches via native query (Flowable 6.7 lacks processInstanceIdIn on ExecutionQuery)
         java.util.Map<String, List<Execution>> executionsByPid = new java.util.HashMap<>();
-        for (String id : ids) {
-            List<Execution> executions = runtimeService.createExecutionQuery()
-                .processInstanceId(id)
-                .list();
-            if (executions != null && !executions.isEmpty()) {
-                executionsByPid.put(id, executions);
-            }
+        List<Execution> executions = fetchExecutionsByProcessIds(ids);
+        for (Execution execution : executions) {
+            executionsByPid.computeIfAbsent(execution.getProcessInstanceId(), k -> new ArrayList<>()).add(execution);
         }
 
         // Active activity IDs and subprocess mapping
@@ -326,15 +323,7 @@ public class CleanupScanner {
             }
         }
         if (!subProcessExecutionIds.isEmpty()) {
-            List<Execution> parentExecutions = new ArrayList<>();
-            for (String executionId : subProcessExecutionIds.keySet()) {
-                Execution parent = runtimeService.createExecutionQuery()
-                    .executionId(executionId)
-                    .singleResult();
-                if (parent != null) {
-                    parentExecutions.add(parent);
-                }
-            }
+            List<Execution> parentExecutions = fetchExecutionsByIds(new ArrayList<>(subProcessExecutionIds.keySet()));
             for (Execution parent : parentExecutions) {
                 String subProcessId = subProcessExecutionIds.get(parent.getId());
                 if (subProcessId != null) {
@@ -387,6 +376,68 @@ public class CleanupScanner {
             return false;
         }
         return true;
+    }
+
+    private List<Execution> fetchExecutionsByProcessIds(List<String> processIds) {
+        List<Execution> result = new ArrayList<>();
+        if (processIds == null || processIds.isEmpty()) {
+            return result;
+        }
+        String tableName = managementService.getTableName(Execution.class);
+        int chunkSize = 200;
+        for (int i = 0; i < processIds.size(); i += chunkSize) {
+            List<String> chunk = processIds.subList(i, Math.min(processIds.size(), i + chunkSize));
+            StringBuilder sql = new StringBuilder("SELECT * FROM ")
+                .append(tableName)
+                .append(" WHERE PROC_INST_ID_ IN (");
+            List<String> paramNames = new ArrayList<>();
+            for (int j = 0; j < chunk.size(); j++) {
+                String param = "pid" + j;
+                paramNames.add(param);
+                sql.append("#{").append(param).append("}");
+                if (j < chunk.size() - 1) {
+                    sql.append(",");
+                }
+            }
+            sql.append(")");
+            NativeExecutionQuery query = runtimeService.createNativeExecutionQuery().sql(sql.toString());
+            for (int j = 0; j < chunk.size(); j++) {
+                query.parameter(paramNames.get(j), chunk.get(j));
+            }
+            result.addAll(query.list());
+        }
+        return result;
+    }
+
+    private List<Execution> fetchExecutionsByIds(List<String> executionIds) {
+        List<Execution> result = new ArrayList<>();
+        if (executionIds == null || executionIds.isEmpty()) {
+            return result;
+        }
+        String tableName = managementService.getTableName(Execution.class);
+        int chunkSize = 200;
+        for (int i = 0; i < executionIds.size(); i += chunkSize) {
+            List<String> chunk = executionIds.subList(i, Math.min(executionIds.size(), i + chunkSize));
+            StringBuilder sql = new StringBuilder("SELECT * FROM ")
+                .append(tableName)
+                .append(" WHERE ID_ IN (");
+            List<String> paramNames = new ArrayList<>();
+            for (int j = 0; j < chunk.size(); j++) {
+                String param = "id" + j;
+                paramNames.add(param);
+                sql.append("#{").append(param).append("}");
+                if (j < chunk.size() - 1) {
+                    sql.append(",");
+                }
+            }
+            sql.append(")");
+            NativeExecutionQuery query = runtimeService.createNativeExecutionQuery().sql(sql.toString());
+            for (int j = 0; j < chunk.size(); j++) {
+                query.parameter(paramNames.get(j), chunk.get(j));
+            }
+            result.addAll(query.list());
+        }
+        return result;
     }
 
     static class PrefetchData {
