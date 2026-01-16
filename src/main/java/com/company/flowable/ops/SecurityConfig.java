@@ -25,7 +25,7 @@ public class SecurityConfig {
             .and()
             .authorizeRequests()
                 .antMatchers("/css/**", "/js/**", "/images/**", "/webjars/**").permitAll()
-                .antMatchers(HttpMethod.GET, "/ops/**").hasAnyRole("FLOWABLE_OPS_VIEWER", "FLOWABLE_OPS_ADMIN")
+                .antMatchers("/ops/**").hasAnyRole("FLOWABLE_OPS_VIEWER", "FLOWABLE_OPS_ADMIN")
                 .antMatchers(HttpMethod.GET, "/api/ops/**").hasAnyRole("FLOWABLE_OPS_VIEWER", "FLOWABLE_OPS_ADMIN")
                 .antMatchers("/api/ops/**").hasRole("FLOWABLE_OPS_ADMIN")
                 .anyRequest().authenticated()

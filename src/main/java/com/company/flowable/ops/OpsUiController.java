@@ -20,9 +20,7 @@ public class OpsUiController {
     public String dashboard(Model model, CsrfToken csrfToken) {
         model.addAttribute("defaultHours", props.getDefaultHours());
         model.addAttribute("dryRun", props.isDryRun());
-        if (csrfToken != null) {
-            model.addAttribute("_csrf", csrfToken);
-        }
+        model.addAttribute("_csrf", csrfToken);
         return "ops-dashboard";
     }
 
@@ -31,9 +29,7 @@ public class OpsUiController {
         ProcessDetailDto detail = cleanupService.getDetails(pid, props.getDefaultHours());
         model.addAttribute("detail", detail);
         model.addAttribute("dryRun", props.isDryRun());
-        if (csrfToken != null) {
-            model.addAttribute("_csrf", csrfToken);
-        }
+        model.addAttribute("_csrf", csrfToken);
         return "ops-details";
     }
 }
