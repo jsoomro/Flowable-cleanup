@@ -30,9 +30,9 @@ ops:
     denyProcDefKeys: []
   security:
     adminUsername: opsadmin
-    adminPassword: "{bcrypt}$2a$10$OdKovIEXMq9lvHm2lDONK.sktEtjCPfOUu6KzU8EvkOZIfqgEZfnO"
+    adminPassword: "{bcrypt}$2a$10$1XsID.YKsvVEODx4R9Eepe/tG0VwFa/nzUrwiV4cOK5DCY/6DHUOS"
     viewerUsername: opsviewer
-    viewerPassword: "{bcrypt}$2a$10$xm7VMFT7HJBinCktGGpdq.micHR5RzMC3csw/o9bbuloiVFUVKQde"
+    viewerPassword: "{bcrypt}$2a$10$YXBuPMqLNd35I4F/1B4br.fV71EA97X2ekOGAAablKtjN6kaf0nRu"
 
 logging:
   config: classpath:log4j2-spring.xml

@@ -103,6 +103,37 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .notice { color: var(--danger); font-weight: 600; }
 
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(32, 27, 20, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.loading-card {
+  background: #fff;
+  padding: 16px 20px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-weight: 600;
+}
+.spinner {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 3px solid #e6e1d9;
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 768px) {
   .container { padding: 16px; }
   header { padding: 18px; }
