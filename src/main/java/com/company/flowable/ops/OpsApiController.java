@@ -23,15 +23,18 @@ public class OpsApiController {
     private final DeleteOrchestrator deleteOrchestrator;
     private final TokenValidator tokenValidator;
     private final OpsCleanupProperties props;
+    private final StuckProcessMonitor stuckProcessMonitor;
 
     public OpsApiController(OpsCleanupService cleanupService,
                             DeleteOrchestrator deleteOrchestrator,
                             TokenValidator tokenValidator,
-                            OpsCleanupProperties props) {
+                            OpsCleanupProperties props,
+                            StuckProcessMonitor stuckProcessMonitor) {
         this.cleanupService = cleanupService;
         this.deleteOrchestrator = deleteOrchestrator;
         this.tokenValidator = tokenValidator;
         this.props = props;
+        this.stuckProcessMonitor = stuckProcessMonitor;
     }
 
     @GetMapping("/processes")
@@ -128,5 +131,10 @@ public class OpsApiController {
         response.setContentType("text/csv");
         response.setHeader("Content-Disposition", "attachment; filename=flowable-ops-export.csv");
         cleanupService.exportCsv(criteria, response.getOutputStream());
+    }
+
+    @GetMapping("/stuck")
+    public List<StuckProcessMonitor.StuckProcessInfo> stuckProcesses() {
+        return stuckProcessMonitor.getStuckProcesses();
     }
 }

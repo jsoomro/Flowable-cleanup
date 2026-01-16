@@ -122,6 +122,26 @@
         </div>
       </div>
     </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3>Stuck Processes (seen in multiple scans)</h3>
+        <button class="secondary" onclick="loadStuck()">Refresh</button>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>PID</th>
+            <th>Proc Key</th>
+            <th>Hours</th>
+            <th>Seen Count</th>
+            <th>Last Seen</th>
+          </tr>
+        </thead>
+        <tbody id="stuckBody"></tbody>
+      </table>
+      <p id="stuckEmpty" style="margin:8px 0; color:var(--muted); display:none;">No stuck processes detected.</p>
+    </div>
   </div>
 
   <div id="loadingOverlay" class="loading-overlay" style="display:none;">
@@ -185,6 +205,39 @@ async function loadData(page) {
   } finally {
     stopLoading();
   }
+}
+
+async function loadStuck() {
+  startLoading();
+  try {
+    const res = await fetch(basePath() + '/api/ops/stuck');
+    const data = await res.json();
+    renderStuck(data || []);
+  } finally {
+    stopLoading();
+  }
+}
+
+function renderStuck(items) {
+  const body = document.getElementById('stuckBody');
+  const empty = document.getElementById('stuckEmpty');
+  body.innerHTML = '';
+  if (!items || items.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  items.forEach(item => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${item.processInstanceId}</td>
+      <td>${item.processDefinitionKey || ''}</td>
+      <td>${item.hoursRunning}</td>
+      <td>${item.seenCount}</td>
+      <td>${item.lastSeen || ''}</td>
+    `;
+    body.appendChild(row);
+  });
 }
 
 function renderSummary(summary) {
@@ -306,6 +359,7 @@ async function confirmTerminate() {
 }
 
 loadData(0);
+loadStuck();
 </script>
 </body>
 </html>
