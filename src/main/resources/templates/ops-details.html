@@ -8,7 +8,7 @@
   <title>Process Details</title>
   <link rel="stylesheet" th:href="@{/css/ops.css}" />
 </head>
-<body>
+<body th:attr="data-base-path=@{/}">
   <header>
     <h1 th:text="'Process ' + ${detail.processInstanceId}">Process</h1>
     <p th:text="${dryRun} ? 'Dry-run enabled' : 'Deletion enabled'">Dry-run enabled</p>
@@ -60,11 +60,35 @@
     </div>
   </div>
 
+  <div id="loadingOverlay" class="loading-overlay" style="display:none;">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div>Working…</div>
+    </div>
+  </div>
+
 <script>
 function getCsrf() {
   const token = document.querySelector('meta[name="_csrf"]').getAttribute('content');
   const header = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
   return { token, header };
+}
+
+function basePath() {
+  const base = document.body.getAttribute('data-base-path') || '/';
+  return base.endsWith('/') ? base.slice(0, -1) : base;
+}
+
+let loadingCount = 0;
+function startLoading() {
+  loadingCount++;
+  document.getElementById('loadingOverlay').style.display = 'flex';
+}
+function stopLoading() {
+  loadingCount = Math.max(loadingCount - 1, 0);
+  if (loadingCount === 0) {
+    document.getElementById('loadingOverlay').style.display = 'none';
+  }
 }
 
 async function terminateSingle() {
@@ -74,15 +98,20 @@ async function terminateSingle() {
   const csrf = getCsrf();
   const pid = "[[${detail.processInstanceId}]]";
 
-  await fetch('/api/ops/processes/terminate', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      [csrf.header]: csrf.token
-    },
-    body: JSON.stringify({ pids: [pid], reason, token, verify: true })
-  });
-  window.location = '/ops';
+  startLoading();
+  try {
+    await fetch(basePath() + '/api/ops/processes/terminate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [csrf.header]: csrf.token
+      },
+      body: JSON.stringify({ pids: [pid], reason, token, verify: true })
+    });
+    window.location = basePath() + '/ops';
+  } finally {
+    stopLoading();
+  }
 }
 </script>
 </body>

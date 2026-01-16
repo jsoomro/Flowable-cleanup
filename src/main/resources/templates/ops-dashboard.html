@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="_csrf" content="" />
-  <meta name="_csrf_header" content="" />
+  <meta name="_csrf" th:content="${_csrf.token}" />
+  <meta name="_csrf_header" th:content="${_csrf.headerName}" />
   <title>Flowable Ops Cleanup</title>
   <link rel="stylesheet" th:href="@{/css/ops.css}" />
 </head>
-<body>
+<body th:attr="data-base-path=@{/}">
   <header>
     <h1>Flowable Ops Cleanup</h1>
     <p th:text="${dryRun} ? 'Dry-run enabled: deletion calls are simulated' : 'Deletion enabled'">Dry-run enabled</p>
@@ -124,10 +124,35 @@
     </div>
   </div>
 
+  <div id="loadingOverlay" class="loading-overlay" style="display:none;">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div>Working…</div>
+    </div>
+  </div>
+
 <script>
 let currentPage = 0;
 let lastPage = 0;
 let pendingMode = "selected";
+let loadingCount = 0;
+
+function basePath() {
+  const base = document.body.getAttribute('data-base-path') || '/';
+  return base.endsWith('/') ? base.slice(0, -1) : base;
+}
+
+function startLoading() {
+  loadingCount++;
+  document.getElementById('loadingOverlay').style.display = 'flex';
+}
+
+function stopLoading() {
+  loadingCount = Math.max(loadingCount - 1, 0);
+  if (loadingCount === 0) {
+    document.getElementById('loadingOverlay').style.display = 'none';
+  }
+}
 
 function buildParams(page) {
   const hours = document.getElementById('hours').value;
@@ -150,11 +175,16 @@ function buildParams(page) {
 async function loadData(page) {
   currentPage = page;
   const params = buildParams(page);
-  const res = await fetch('/api/ops/processes?' + params.toString());
-  const data = await res.json();
-  renderTable(data.items || []);
-  renderSummary(data.summaryCounts || {});
-  renderPageInfo(data.page || {});
+  startLoading();
+  try {
+    const res = await fetch(basePath() + '/api/ops/processes?' + params.toString());
+    const data = await res.json();
+    renderTable(data.items || []);
+    renderSummary(data.summaryCounts || {});
+    renderPageInfo(data.page || {});
+  } finally {
+    stopLoading();
+  }
 }
 
 function renderSummary(summary) {
@@ -172,9 +202,11 @@ function renderPageInfo(page) {
 function renderTable(items) {
   const body = document.getElementById('resultsBody');
   body.innerHTML = '';
+  const root = basePath();
   items.forEach(item => {
     const row = document.createElement('tr');
     const badgeClass = item.recommendedAction ? item.recommendedAction.toLowerCase() : '';
+    const detailUrl = `${root}/ops/${encodeURIComponent(item.processInstanceId)}`;
     row.innerHTML = `
       <td><input type="checkbox" class="rowCheck" value="${item.processInstanceId}" /></td>
       <td>${item.processInstanceId}</td>
@@ -185,7 +217,7 @@ function renderTable(items) {
       <td>${item.timerCount}</td>
       <td>${item.overdueJobCount}</td>
       <td><span class="badge ${badgeClass}">${item.recommendedAction || ''}</span></td>
-      <td><a href="/ops/${item.processInstanceId}">Details</a></td>
+      <td><a href="${detailUrl}">Details</a></td>
     `;
     body.appendChild(row);
   });
@@ -209,7 +241,7 @@ function nextPage() {
 
 function exportCsv() {
   const params = buildParams(currentPage);
-  window.location = '/api/ops/processes/export?' + params.toString();
+  window.location = basePath() + '/api/ops/processes/export?' + params.toString();
 }
 
 function openTerminateSelected() {
@@ -238,34 +270,39 @@ async function confirmTerminate() {
   const token = document.getElementById('token').value;
   const csrf = getCsrf();
 
-  if (pendingMode === 'selected') {
-    const pids = Array.from(document.querySelectorAll('.rowCheck:checked')).map(cb => cb.value);
-    const res = await fetch('/api/ops/processes/terminate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(csrf ? { [csrf.header]: csrf.token } : {})
-      },
-      body: JSON.stringify({ pids, reason, token, verify: true })
-    });
-    await res.json();
-  } else {
-    const params = buildParams(currentPage);
-    const hours = document.getElementById('hours').value;
-    const action = 'TERMINATE';
-    const procDefKey = document.getElementById('procDefKey').value;
-    const res = await fetch('/api/ops/processes/terminateAll', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(csrf ? { [csrf.header]: csrf.token } : {})
-      },
-      body: JSON.stringify({ hours, action, procDefKey, reason, token })
-    });
-    await res.json();
+  startLoading();
+  try {
+    if (pendingMode === 'selected') {
+      const pids = Array.from(document.querySelectorAll('.rowCheck:checked')).map(cb => cb.value);
+      const res = await fetch(basePath() + '/api/ops/processes/terminate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrf ? { [csrf.header]: csrf.token } : {})
+        },
+        body: JSON.stringify({ pids, reason, token, verify: true })
+      });
+      await res.json();
+    } else {
+      const params = buildParams(currentPage);
+      const hours = document.getElementById('hours').value;
+      const action = 'TERMINATE';
+      const procDefKey = document.getElementById('procDefKey').value;
+      const res = await fetch(basePath() + '/api/ops/processes/terminateAll', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrf ? { [csrf.header]: csrf.token } : {})
+        },
+        body: JSON.stringify({ hours, action, procDefKey, reason, token })
+      });
+      await res.json();
+    }
+    closeConfirm();
+    loadData(currentPage);
+  } finally {
+    stopLoading();
   }
-  closeConfirm();
-  loadData(currentPage);
 }
 
 loadData(0);
