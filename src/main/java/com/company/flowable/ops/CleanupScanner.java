@@ -299,38 +299,30 @@ public class CleanupScanner {
             data.runtimeByProcessId.put(pi.getId(), pi);
         }
 
-        // Prefetch active activity IDs
-        List<Execution> activityExecutions = new ArrayList<>();
-        if (!ids.isEmpty()) {
-            for (String id : ids) {
-                activityExecutions.addAll(runtimeService.createExecutionQuery()
-                    .processInstanceId(id)
-                    .onlyChildExecutions()
-                    .list());
-            }
-        }
-        for (Execution execution : activityExecutions) {
-            if (execution.getActivityId() != null) {
-                data.activeActivityIdsByProcessId
-                    .computeIfAbsent(execution.getProcessInstanceId(), k -> new ArrayList<>())
-                    .add(execution.getActivityId());
+        // Prefetch executions per process instance (Flowable 6.7 lacks processInstanceIdIn on ExecutionQuery)
+        java.util.Map<String, List<Execution>> executionsByPid = new java.util.HashMap<>();
+        for (String id : ids) {
+            List<Execution> executions = runtimeService.createExecutionQuery()
+                .processInstanceId(id)
+                .list();
+            if (executions != null && !executions.isEmpty()) {
+                executionsByPid.put(id, executions);
             }
         }
 
-        // Prefetch parent process relationships for sub-processes
-        List<Execution> processExecutions = new ArrayList<>();
-        if (!ids.isEmpty()) {
-            for (String id : ids) {
-                processExecutions.addAll(runtimeService.createExecutionQuery()
-                    .processInstanceId(id)
-                    .onlyProcessInstanceExecutions()
-                    .list());
-            }
-        }
+        // Active activity IDs and subprocess mapping
         java.util.Map<String, String> subProcessExecutionIds = new java.util.HashMap<>();
-        for (Execution execution : processExecutions) {
-            if (execution.getSuperExecutionId() != null) {
-                subProcessExecutionIds.put(execution.getSuperExecutionId(), execution.getProcessInstanceId());
+        for (java.util.Map.Entry<String, List<Execution>> entry : executionsByPid.entrySet()) {
+            String pid = entry.getKey();
+            for (Execution execution : entry.getValue()) {
+                if (execution.getActivityId() != null) {
+                    data.activeActivityIdsByProcessId
+                        .computeIfAbsent(pid, k -> new ArrayList<>())
+                        .add(execution.getActivityId());
+                }
+                if (execution.getSuperExecutionId() != null) {
+                    subProcessExecutionIds.put(execution.getSuperExecutionId(), pid);
+                }
             }
         }
         if (!subProcessExecutionIds.isEmpty()) {
