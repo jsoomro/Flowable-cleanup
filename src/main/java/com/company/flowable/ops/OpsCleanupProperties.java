@@ -18,6 +18,10 @@ public class OpsCleanupProperties {
     private int retryCount = 2;
     private long retryBackoffMillis = 500;
     private long delayBetweenDeletesMillis = 50;
+    private boolean suspendBeforeDelete = false;
+    private boolean deleteHistoric = false;
+    private boolean npeFallbackEnabled = true;
+    private boolean jobExecutorQuietMode = false;
     private QueryStrategy queryStrategy = QueryStrategy.API_ONLY;
     private NativeSql nativeSql = new NativeSql();
     private Audit audit = new Audit();
@@ -94,6 +98,38 @@ public class OpsCleanupProperties {
 
     public void setDelayBetweenDeletesMillis(long delayBetweenDeletesMillis) {
         this.delayBetweenDeletesMillis = delayBetweenDeletesMillis;
+    }
+
+    public boolean isSuspendBeforeDelete() {
+        return suspendBeforeDelete;
+    }
+
+    public void setSuspendBeforeDelete(boolean suspendBeforeDelete) {
+        this.suspendBeforeDelete = suspendBeforeDelete;
+    }
+
+    public boolean isDeleteHistoric() {
+        return deleteHistoric;
+    }
+
+    public void setDeleteHistoric(boolean deleteHistoric) {
+        this.deleteHistoric = deleteHistoric;
+    }
+
+    public boolean isNpeFallbackEnabled() {
+        return npeFallbackEnabled;
+    }
+
+    public void setNpeFallbackEnabled(boolean npeFallbackEnabled) {
+        this.npeFallbackEnabled = npeFallbackEnabled;
+    }
+
+    public boolean isJobExecutorQuietMode() {
+        return jobExecutorQuietMode;
+    }
+
+    public void setJobExecutorQuietMode(boolean jobExecutorQuietMode) {
+        this.jobExecutorQuietMode = jobExecutorQuietMode;
     }
 
     public QueryStrategy getQueryStrategy() {

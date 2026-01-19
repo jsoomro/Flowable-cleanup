@@ -5,6 +5,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class DeleteOrchestrator {
     private static final Logger logger = LoggerFactory.getLogger(DeleteOrchestrator.class);
+    private static final Set<String> inFlight = ConcurrentHashMap.newKeySet();
 
     private final OpsCleanupProperties props;
     private final DeleteWorker deleteWorker;
@@ -56,6 +59,9 @@ public class DeleteOrchestrator {
     }
 
     private List<DeleteResultDto> deleteByIds(List<String> pids, String reason, boolean verify, String user) {
+        if (props.isJobExecutorQuietMode()) {
+            logger.info("Job executor quiet mode requested; async executor is already disabled in FlowableEngineConfig.");
+        }
         if (props.isDryRun()) {
             List<DeleteResultDto> results = new ArrayList<>();
             for (String pid : pids) {
@@ -96,12 +102,23 @@ public class DeleteOrchestrator {
         candidates.sort(Comparator.comparingInt((Candidate c) -> computeDepth(c, map)).reversed());
 
         for (Candidate candidate : candidates) {
-            logger.info("Deleting pid={}, procKey={}, depth={}, verify={}", candidate.getProcessInstanceId(),
-                candidate.getProcessDefinitionKey(), computeDepth(candidate, map), verify);
-            DeleteOutcome outcome = deleteWorker.deleteProcess(candidate.getProcessInstanceId(), reason, verify);
-            results.add(new DeleteResultDto(candidate.getProcessInstanceId(), outcome.getResult(), outcome.getError()));
-            auditService.logEvent("DELETE", candidate, outcome.getResult(), user, reason, outcome.getError());
-            pause();
+            String pid = candidate.getProcessInstanceId();
+            if (!inFlight.add(pid)) {
+                logger.info("Skipping pid={} because a delete is already in-flight this run", pid);
+                results.add(new DeleteResultDto(pid, "SKIPPED", "Already in progress"));
+                continue;
+            }
+            try {
+                int depth = computeDepth(candidate, map);
+                logger.info("Deleting pid={}, procKey={}, depth={}, verify={}", pid,
+                    candidate.getProcessDefinitionKey(), depth, verify);
+                DeleteOutcome outcome = deleteWorker.deleteProcess(pid, reason, verify);
+                results.add(new DeleteResultDto(pid, outcome.getResult(), outcome.getError()));
+                auditService.logEvent("DELETE", candidate, outcome.getResult(), user, reason, outcome.getError());
+                pause();
+            } finally {
+                inFlight.remove(pid);
+            }
         }
         return results;
     }
