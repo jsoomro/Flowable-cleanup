@@ -61,7 +61,7 @@ public class DeleteOrchestrator {
             for (String pid : pids) {
                 Candidate candidate = cleanupService.loadCandidateForDelete(pid);
                 if (candidate != null) {
-                    logger.info("[DRY RUN] Would delete pid={}, procKey={}, reason={}", pid, candidate.getProcDefKey(), reason);
+                    logger.info("[DRY RUN] Would delete pid={}, procKey={}, reason={}", pid, candidate.getProcessDefinitionKey(), reason);
                     auditService.logEvent("DELETE", candidate, "DRY_RUN", user, reason, null);
                     results.add(new DeleteResultDto(pid, "DRY_RUN", null));
                 } else {
@@ -97,7 +97,7 @@ public class DeleteOrchestrator {
 
         for (Candidate candidate : candidates) {
             logger.info("Deleting pid={}, procKey={}, depth={}, verify={}", candidate.getProcessInstanceId(),
-                candidate.getProcDefKey(), computeDepth(candidate, map), verify);
+                candidate.getProcessDefinitionKey(), computeDepth(candidate, map), verify);
             DeleteOutcome outcome = deleteWorker.deleteProcess(candidate.getProcessInstanceId(), reason, verify);
             results.add(new DeleteResultDto(candidate.getProcessInstanceId(), outcome.getResult(), outcome.getError()));
             auditService.logEvent("DELETE", candidate, outcome.getResult(), user, reason, outcome.getError());
