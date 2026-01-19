@@ -4,6 +4,8 @@ spring:
     username: FLOWABLE
     password: secret
     driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      connection-init-sql: "ALTER SESSION SET CURRENT_SCHEMA=CIMFLOW"
 
 flowable:
   database-schema-update: true
