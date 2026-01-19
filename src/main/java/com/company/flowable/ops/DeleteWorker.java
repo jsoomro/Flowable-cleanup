@@ -61,12 +61,6 @@ public class DeleteWorker {
                 }
                 return DeleteOutcome.ok();
             } catch (Exception ex) {
-                if (isCallActivityNpe(ex)) {
-                    String msg = "Flowable engine bug: call activity metadata missing (callActivityElement null). "
-                        + "Redeploy parent/called process definitions or upgrade Flowable to 6.7.3+/6.8+.";
-                    logger.warn("{} pid={}", msg, pid, ex);
-                    return DeleteOutcome.fail(msg);
-                }
                 if (isRetryable(ex) && attempt < maxAttempts) {
                     logger.info("pid={} delete retryable failure on attempt {}: {}", pid, attempt + 1, ex.getMessage());
                     backoff(attempt);
@@ -101,19 +95,5 @@ public class DeleteWorker {
         }
         String msg = ex.getMessage() == null ? "" : ex.getMessage().toLowerCase();
         return msg.contains("optimistic") || msg.contains("concurrent");
-    }
-
-    private boolean isCallActivityNpe(Throwable ex) {
-        Throwable current = ex;
-        while (current != null) {
-            if (current instanceof NullPointerException) {
-                String msg = current.getMessage() == null ? "" : current.getMessage();
-                if (msg.contains("callActivityElement")) {
-                    return true;
-                }
-            }
-            current = current.getCause();
-        }
-        return false;
     }
 }

@@ -14,7 +14,7 @@
 
   <properties>
     <java.version>17</java.version>
-    <flowable.version>6.8.0</flowable.version>
+    <flowable.version>6.7.2</flowable.version>
   </properties>
 
   <dependencies>
