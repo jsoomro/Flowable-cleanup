@@ -6,10 +6,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class DeleteOrchestrator {
+    private static final Logger logger = LoggerFactory.getLogger(DeleteOrchestrator.class);
+
     private final OpsCleanupProperties props;
     private final DeleteWorker deleteWorker;
     private final OpsCleanupService cleanupService;
@@ -32,6 +36,7 @@ public class DeleteOrchestrator {
         if (pids.size() > props.getMaxBulkDelete()) {
             throw new OpsException(400, "Too many process instances requested");
         }
+        logger.info("Terminate selected requested: {} pids, verify={}, user={}, dryRun={}", pids.size(), verify, user, props.isDryRun());
         return deleteByIds(pids, reason, verify, user);
     }
 
@@ -46,6 +51,7 @@ public class DeleteOrchestrator {
         if (ids.isEmpty()) {
             return new ArrayList<>();
         }
+        logger.info("Terminate ALL requested: {} candidates (capped at {}), user={}, dryRun={}", ids.size(), props.getMaxBulkDelete(), user, props.isDryRun());
         return deleteByIds(ids, reason, true, user);
     }
 
@@ -55,11 +61,13 @@ public class DeleteOrchestrator {
             for (String pid : pids) {
                 Candidate candidate = cleanupService.loadCandidateForDelete(pid);
                 if (candidate != null) {
+                    logger.info("[DRY RUN] Would delete pid={}, procKey={}, reason={}", pid, candidate.getProcDefKey(), reason);
                     auditService.logEvent("DELETE", candidate, "DRY_RUN", user, reason, null);
                     results.add(new DeleteResultDto(pid, "DRY_RUN", null));
                 } else {
                     Candidate placeholder = new Candidate();
                     placeholder.setProcessInstanceId(pid);
+                    logger.info("[DRY RUN] Skipping pid={} because it is not eligible or not found", pid);
                     auditService.logEvent("DELETE", placeholder, "SKIPPED", user, reason, "Not eligible or not found");
                     results.add(new DeleteResultDto(pid, "SKIPPED", "Not eligible or not found"));
                 }
@@ -74,6 +82,7 @@ public class DeleteOrchestrator {
             if (candidate == null) {
                 Candidate placeholder = new Candidate();
                 placeholder.setProcessInstanceId(pid);
+                logger.info("Skipping pid={} because it is not eligible or not found", pid);
                 auditService.logEvent("DELETE", placeholder, "SKIPPED", user, reason, "Not eligible or not found");
                 results.add(new DeleteResultDto(pid, "SKIPPED", "Not eligible or not found"));
                 continue;
@@ -87,6 +96,8 @@ public class DeleteOrchestrator {
         candidates.sort(Comparator.comparingInt((Candidate c) -> computeDepth(c, map)).reversed());
 
         for (Candidate candidate : candidates) {
+            logger.info("Deleting pid={}, procKey={}, depth={}, verify={}", candidate.getProcessInstanceId(),
+                candidate.getProcDefKey(), computeDepth(candidate, map), verify);
             DeleteOutcome outcome = deleteWorker.deleteProcess(candidate.getProcessInstanceId(), reason, verify);
             results.add(new DeleteResultDto(candidate.getProcessInstanceId(), outcome.getResult(), outcome.getError()));
             auditService.logEvent("DELETE", candidate, outcome.getResult(), user, reason, outcome.getError());

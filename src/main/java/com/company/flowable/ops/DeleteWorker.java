@@ -30,19 +30,30 @@ public class DeleteWorker {
     public DeleteOutcome deleteProcess(String pid, String reason, boolean verify) {
         boolean active = runtimeService.createProcessInstanceQuery().processInstanceId(pid).active().count() > 0;
         if (!active) {
+            logger.info("pid={} not active; skipping delete", pid);
             return DeleteOutcome.skipped("Process instance not active");
         }
 
         int maxAttempts = Math.max(0, props.getRetryCount());
         for (int attempt = 0; attempt <= maxAttempts; attempt++) {
             try {
+                logger.info("Attempt {} deleting pid={} (verify={}, reason='{}')", attempt + 1, pid, verify, reason);
                 runtimeService.deleteProcessInstance(pid, reason);
                 if (verify) {
                     VerificationSnapshot snapshot = verificationService.verify(pid);
+                    logger.info("Verification for pid={}: deleted={}, procInstances={}, tasks={}, jobs={}, timers={}, executions={}",
+                        pid,
+                        snapshot.isDeleted(),
+                        snapshot.getProcessInstanceCount(),
+                        snapshot.getTaskCount(),
+                        snapshot.getJobCount(),
+                        snapshot.getTimerCount(),
+                        snapshot.getExecutionCount());
                     if (snapshot.isDeleted()) {
                         return DeleteOutcome.ok();
                     }
                     if (attempt < maxAttempts) {
+                        logger.info("pid={} verification failed; retrying delete after backoff", pid);
                         backoff(attempt);
                         continue;
                     }
@@ -51,6 +62,7 @@ public class DeleteWorker {
                 return DeleteOutcome.ok();
             } catch (Exception ex) {
                 if (isRetryable(ex) && attempt < maxAttempts) {
+                    logger.info("pid={} delete retryable failure on attempt {}: {}", pid, attempt + 1, ex.getMessage());
                     backoff(attempt);
                     continue;
                 }
