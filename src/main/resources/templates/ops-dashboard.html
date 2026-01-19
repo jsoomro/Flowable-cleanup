@@ -106,8 +106,8 @@
     </div>
 
     <div class="card" id="confirmPanel" style="display:none;">
-      <h3>Confirm Termination</h3>
-      <p class="notice">Bulk termination is irreversible. Provide a reason and the confirmation token.</p>
+      <h3 id="confirmTitle">Confirm Termination</h3>
+      <p class="notice" id="confirmNotice">Bulk termination is irreversible. Provide a reason and the confirmation token.</p>
       <div class="filters">
         <div>
           <label>Reason</label>
@@ -318,16 +318,27 @@ function openTerminateSelected() {
     return;
   }
   pendingMode = 'selected';
-  resetConfirmPanel('DELETE_TERMINATE');
+  resetConfirmPanel('DELETE_TERMINATE', 'selected');
 }
 
 function terminateAllTerminate() {
   pendingMode = 'all';
-  resetConfirmPanel('DELETE_ALL_TERMINATE');
+  resetConfirmPanel('DELETE_ALL_TERMINATE', 'all');
 }
 
-function resetConfirmPanel(tokenPlaceholder) {
+function resetConfirmPanel(tokenPlaceholder, mode) {
   const panel = document.getElementById('confirmPanel');
+  const isBulk = mode === 'all';
+  const title = document.getElementById('confirmTitle');
+  const notice = document.getElementById('confirmNotice');
+  if (title) {
+    title.textContent = isBulk ? 'Confirm Bulk Termination' : 'Confirm Selected Termination';
+  }
+  if (notice) {
+    notice.textContent = isBulk
+      ? 'Bulk termination is irreversible. Provide a reason and the confirmation token.'
+      : 'Termination of selected instances is irreversible. Provide a reason and the confirmation token.';
+  }
   document.getElementById('token').placeholder = tokenPlaceholder;
   document.getElementById('token').value = '';
   document.getElementById('reason').value = '';
