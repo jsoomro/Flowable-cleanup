@@ -15,6 +15,7 @@
   </header>
 
   <div class="container">
+    <div id="message" class="flash" style="display:none;"></div>
     <div class="card">
       <div class="filters">
         <div>
@@ -156,6 +157,7 @@ let currentPage = 0;
 let lastPage = 0;
 let pendingMode = "selected";
 let loadingCount = 0;
+let messageTimer = null;
 
 function basePath() {
   const base = document.body.getAttribute('data-base-path') || '/';
@@ -297,19 +299,46 @@ function exportCsv() {
   window.location = basePath() + '/api/ops/processes/export?' + params.toString();
 }
 
+function showMessage(text, type = 'info') {
+  const box = document.getElementById('message');
+  if (!box) {
+    return;
+  }
+  box.textContent = text;
+  box.className = `flash ${type}`;
+  box.style.display = 'block';
+  clearTimeout(messageTimer);
+  messageTimer = setTimeout(() => box.style.display = 'none', 6000);
+}
+
 function openTerminateSelected() {
+  const selected = document.querySelectorAll('.rowCheck:checked');
+  if (selected.length === 0) {
+    showMessage('Select at least one process to terminate.', 'error');
+    return;
+  }
   pendingMode = 'selected';
-  document.getElementById('confirmPanel').style.display = 'block';
+  resetConfirmPanel('DELETE_TERMINATE');
 }
 
 function terminateAllTerminate() {
   pendingMode = 'all';
-  document.getElementById('confirmPanel').style.display = 'block';
-  document.getElementById('token').placeholder = 'DELETE_ALL_TERMINATE';
+  resetConfirmPanel('DELETE_ALL_TERMINATE');
+}
+
+function resetConfirmPanel(tokenPlaceholder) {
+  const panel = document.getElementById('confirmPanel');
+  document.getElementById('token').placeholder = tokenPlaceholder;
+  document.getElementById('token').value = '';
+  document.getElementById('reason').value = '';
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function closeConfirm() {
   document.getElementById('confirmPanel').style.display = 'none';
+  document.getElementById('token').value = '';
+  document.getElementById('reason').value = '';
 }
 
 function getCsrf() {
@@ -318,15 +347,57 @@ function getCsrf() {
   return token && header ? { token, header } : null;
 }
 
+async function handleResponse(res) {
+  let body = null;
+  try {
+    body = await res.json();
+  } catch (err) {
+    body = null;
+  }
+  if (!res.ok) {
+    const message = (body && (body.message || body.error || body.detail)) || `Request failed (${res.status})`;
+    throw new Error(message);
+  }
+  return body || {};
+}
+
+function showTerminateResults(results) {
+  if (!results || results.length === 0) {
+    showMessage('No process instances matched the request.', 'info');
+    return;
+  }
+  const successful = results.filter(r => r && (r.result === 'OK' || r.result === 'DRY_RUN')).length;
+  const failed = results.length - successful;
+  const dryRunNoted = results.some(r => r && r.result === 'DRY_RUN') ? ' (dry-run enabled)' : '';
+  const type = failed > 0 ? 'error' : 'success';
+  showMessage(`Terminate request processed: ${successful} succeeded, ${failed} failed${dryRunNoted}.`, type);
+}
+
 async function confirmTerminate() {
-  const reason = document.getElementById('reason').value;
-  const token = document.getElementById('token').value;
+  const reasonField = document.getElementById('reason');
+  const tokenField = document.getElementById('token');
+  const reason = (reasonField.value || '').trim();
+  const token = (tokenField.value || '').trim();
   const csrf = getCsrf();
+  if (!reason) {
+    showMessage('Reason is required.', 'error');
+    reasonField.focus();
+    return;
+  }
+  if (!token) {
+    showMessage('Confirmation token is required.', 'error');
+    tokenField.focus();
+    return;
+  }
 
   startLoading();
   try {
+    let responseBody = null;
     if (pendingMode === 'selected') {
       const pids = Array.from(document.querySelectorAll('.rowCheck:checked')).map(cb => cb.value);
+      if (pids.length === 0) {
+        throw new Error('Select at least one process to terminate.');
+      }
       const res = await fetch(basePath() + '/api/ops/processes/terminate', {
         method: 'POST',
         headers: {
@@ -335,9 +406,8 @@ async function confirmTerminate() {
         },
         body: JSON.stringify({ pids, reason, token, verify: true })
       });
-      await res.json();
+      responseBody = await handleResponse(res);
     } else {
-      const params = buildParams(currentPage);
       const hours = document.getElementById('hours').value;
       const action = 'TERMINATE';
       const procDefKey = document.getElementById('procDefKey').value;
@@ -349,10 +419,13 @@ async function confirmTerminate() {
         },
         body: JSON.stringify({ hours, action, procDefKey, reason, token })
       });
-      await res.json();
+      responseBody = await handleResponse(res);
     }
+    showTerminateResults((responseBody && responseBody.results) || []);
     closeConfirm();
     loadData(currentPage);
+  } catch (err) {
+    showMessage(err.message || 'Terminate request failed.', 'error');
   } finally {
     stopLoading();
   }

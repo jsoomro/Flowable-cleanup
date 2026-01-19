@@ -38,6 +38,18 @@ header p { margin: 4px 0 0; color: #d8cbb8; }
   margin-bottom: 20px;
 }
 
+.flash {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+  font-weight: 600;
+  display: none;
+}
+.flash.info { background: #e8f0fb; color: #123262; border-color: #c9d7f5; }
+.flash.success { background: #e2f4e6; color: #1f5d2a; border-color: #b4e0bc; }
+.flash.error { background: #fdecea; color: #611a15; border-color: #f5c2c0; }
+
 .filters {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
